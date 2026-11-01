@@ -79,8 +79,8 @@ func (r *policyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description: "allow, block, detect (Monitor), or warn (Runtime Enforcement only).",
 			},
 			"enforcement_tool": schema.StringAttribute{
-				Optional:      true,
-				Description:   "Enforcement integration, e.g. \"falcon\" or \"hooks\". Omit for Monitor policies. Changing it replaces the policy.",
+				Required:      true,
+				Description:   "Enforcement integration as the API names it, e.g. \"Falcon\", or \"Monitor\" for detect policies. Changing it replaces the policy.",
 				PlanModifiers: replace,
 			},
 			"enabled":         schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(true)},
@@ -99,7 +99,7 @@ func (r *policyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description:   "Who the policy applies to. Empty applies it to everyone. Omit to leave the stored scoping alone.",
 				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 				NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
-					"type":   schema.StringAttribute{Required: true, Description: "Selector type, e.g. user_tag or department."},
+					"type":   schema.StringAttribute{Required: true, Description: "Selector type: user_tag, endpoint_tag, user_department, user_title, specific_user, specific_endpoint or agent."},
 					"values": schema.SetAttribute{Required: true, ElementType: types.StringType},
 				}},
 			},

@@ -97,10 +97,10 @@ resource "pluto_policy" "notetakers" {
   name             = %q
   category         = "AI Notetakers"
   policy_type      = "block"
-  enforcement_tool = "falcon"
+  enforcement_tool = "Falcon"
   tools            = [%s]
   targeted_scopes = [{
-    type   = "department"
+    type   = "user_department"
     values = ["Engineering"]
   }]
 }
@@ -173,8 +173,9 @@ provider "pluto" {
 
 resource "pluto_policy" "monitor" {
   name        = "Watch notetakers"
-  category    = "AI Notetakers"
-  policy_type = "detect"
+  category         = "AI Notetakers"
+  policy_type      = "detect"
+  enforcement_tool = "Monitor"
 }
 `, srv.URL)
 

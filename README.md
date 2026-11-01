@@ -24,11 +24,11 @@ resource "pluto_policy" "notetakers" {
   name             = "Block AI notetakers"
   category         = "AI Notetakers"
   policy_type      = "block"
-  enforcement_tool = "falcon"
+  enforcement_tool = "Falcon"
   tools            = ["Otter", "Fireflies"]
 
   targeted_scopes = [{
-    type   = "department"
+    type   = "user_department"
     values = ["Engineering"]
   }]
 }
@@ -44,8 +44,7 @@ terraform import pluto_policy.notetakers <policy id>
 
 | Attribute | Notes |
 |---|---|
-| `name`, `category`, `policy_type` | Required. Changing `category` replaces the policy. |
-| `enforcement_tool` | Omit for Monitor (`detect`) policies. Changing it replaces the policy. |
+| `name`, `category`, `policy_type`, `enforcement_tool` | Required. `enforcement_tool` is the integration as Pluto names it (e.g. `"Falcon"`); use `"Monitor"` for `detect` policies. Changing `category` or `enforcement_tool` replaces the policy. |
 | `tools` | Tool names the policy targets. Omit to leave the stored selection alone. |
 | `targeted_scopes` | Who the policy applies to; `[]` applies it to everyone. Omit to leave it alone. |
 | `description`, `custom_message` | Optional. |
