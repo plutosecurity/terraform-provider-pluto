@@ -1,0 +1,5 @@
+terraform-provider-pluto
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
