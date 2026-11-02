@@ -1,4 +1,4 @@
-module github.com/plutosecurity/pluto-terraform-provider
+module github.com/plutosecurity/terraform-provider-pluto
 
 go 1.25.8
 

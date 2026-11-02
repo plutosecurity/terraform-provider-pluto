@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/plutosecurity/pluto-terraform-provider/internal/client"
+	"github.com/plutosecurity/terraform-provider-pluto/internal/client"
 )
 
 var (

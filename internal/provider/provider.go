@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/plutosecurity/pluto-terraform-provider/internal/client"
+	"github.com/plutosecurity/terraform-provider-pluto/internal/client"
 )
 
 type plutoProvider struct {

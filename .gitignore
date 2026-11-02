@@ -3,3 +3,4 @@ terraform-provider-pluto
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+dist/

@@ -75,3 +75,26 @@ provider_installation {
   direct {}
 }
 ```
+
+`docs/` is generated from the schema and `examples/`; do not edit it by hand:
+
+```sh
+go generate ./...                               # needs terraform on PATH
+```
+
+## Release
+
+Releases are built and signed by `.github/workflows/release.yml` (GoReleaser) and picked up by
+the [Terraform Registry](https://registry.terraform.io/providers/plutosecurity/pluto) through
+its release webhook. The workflow needs the `GPG_PRIVATE_KEY` and `PASSPHRASE` repository
+secrets for the registry signing key.
+
+1. Add an entry to `CHANGELOG.md` and merge to `main`.
+2. Tag `main` with the next SemVer version and push the tag:
+
+   ```sh
+   git tag v0.1.0 && git push origin v0.1.0
+   ```
+
+3. Check the GitHub Release has the zips, `_SHA256SUMS`, `_SHA256SUMS.sig` and `_manifest.json`
+   assets. Never edit a published release; cut a new version instead.

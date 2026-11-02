@@ -7,8 +7,11 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 
-	"github.com/plutosecurity/pluto-terraform-provider/internal/provider"
+	"github.com/plutosecurity/terraform-provider-pluto/internal/provider"
 )
+
+// Regenerate docs/ from the schema and examples/ (see tools/tools.go).
+//go:generate go generate -C tools ./...
 
 // version is set by the release build.
 var version = "dev"
