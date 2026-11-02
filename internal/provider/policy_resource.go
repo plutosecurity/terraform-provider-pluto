@@ -61,7 +61,7 @@ func (r *policyResource) Metadata(_ context.Context, req resource.MetadataReques
 func (r *policyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	replace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
-		Description: "A Pluto policy. Policies this provider writes are marked managed by Terraform, and the dashboard warns that edits made there are reverted on the next apply.",
+		Description: "A Pluto policy.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:      true,
@@ -71,16 +71,15 @@ func (r *policyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"description": schema.StringAttribute{Optional: true},
 			"category": schema.StringAttribute{
 				Required:      true,
-				Description:   "Policy category, e.g. \"AI Notetakers\". Changing it replaces the policy.",
+				Description:   "Changing it replaces the policy.",
 				PlanModifiers: replace,
 			},
 			"policy_type": schema.StringAttribute{
-				Required:    true,
-				Description: "allow, block, detect (Monitor), or warn (Runtime Enforcement only).",
+				Required: true,
 			},
 			"enforcement_tool": schema.StringAttribute{
 				Required:      true,
-				Description:   "Enforcement integration as the API names it, e.g. \"Falcon\", or \"Monitor\" for detect policies. Changing it replaces the policy.",
+				Description:   "Changing it replaces the policy.",
 				PlanModifiers: replace,
 			},
 			"enabled":         schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(true)},
@@ -90,16 +89,16 @@ func (r *policyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Optional:      true,
 				Computed:      true,
 				ElementType:   types.StringType,
-				Description:   "Names of the tools the policy targets. Omit to leave the stored selection alone.",
+				Description:   "Omit to leave the stored value unchanged.",
 				PlanModifiers: []planmodifier.Set{setplanmodifier.UseStateForUnknown()},
 			},
 			"targeted_scopes": schema.ListNestedAttribute{
 				Optional:      true,
 				Computed:      true,
-				Description:   "Who the policy applies to. Empty applies it to everyone. Omit to leave the stored scoping alone.",
+				Description:   "Omit to leave the stored value unchanged.",
 				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 				NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
-					"type":   schema.StringAttribute{Required: true, Description: "Selector type: user_tag, endpoint_tag, user_department, user_title, specific_user, specific_endpoint or agent."},
+					"type":   schema.StringAttribute{Required: true},
 					"values": schema.SetAttribute{Required: true, ElementType: types.StringType},
 				}},
 			},

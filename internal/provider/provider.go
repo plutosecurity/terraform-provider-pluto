@@ -35,16 +35,16 @@ func (p *plutoProvider) Metadata(_ context.Context, _ provider.MetadataRequest, 
 
 func (p *plutoProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manage Pluto Security policies through Pluto's external API.",
+		Description: "Manage Pluto policies.",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
 				Optional:    true,
-				Description: "Your Pluto API URL, e.g. https://api.example.pluto.security. Defaults to PLUTO_HOST.",
+				Description: "Pluto host. Defaults to PLUTO_HOST.",
 			},
 			"api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "A Pluto API key (pluto_...) with policy write access. Defaults to PLUTO_API_KEY.",
+				Description: "Pluto API key. Defaults to PLUTO_API_KEY.",
 			},
 		},
 	}
