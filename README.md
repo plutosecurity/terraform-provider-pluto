@@ -24,11 +24,11 @@ resource "pluto_policy" "notetakers" {
   name             = "Block AI notetakers"
   category         = "AI Notetakers"
   policy_type      = "block"
-  enforcement_tool = "falcon"
+  enforcement_tool = "Falcon"
   tools            = ["Otter", "Fireflies"]
 
   targeted_scopes = [{
-    type   = "department"
+    type   = "user_department"
     values = ["Engineering"]
   }]
 }
@@ -44,8 +44,7 @@ terraform import pluto_policy.notetakers <policy id>
 
 | Attribute | Notes |
 |---|---|
-| `name`, `category`, `policy_type` | Required. Changing `category` replaces the policy. |
-| `enforcement_tool` | Omit for Monitor (`detect`) policies. Changing it replaces the policy. |
+| `name`, `category`, `policy_type`, `enforcement_tool` | Required. `enforcement_tool` is the integration as Pluto names it (e.g. `"Falcon"`); use `"Monitor"` for `detect` policies. Changing `category` or `enforcement_tool` replaces the policy. |
 | `tools` | Tool names the policy targets. Omit to leave the stored selection alone. |
 | `targeted_scopes` | Who the policy applies to; `[]` applies it to everyone. Omit to leave it alone. |
 | `description`, `custom_message` | Optional. |
@@ -76,3 +75,26 @@ provider_installation {
   direct {}
 }
 ```
+
+`docs/` is generated from the schema and `examples/`; do not edit it by hand:
+
+```sh
+go generate ./...                               # needs terraform on PATH
+```
+
+## Release
+
+Releases are built and signed by `.github/workflows/release.yml` (GoReleaser) and picked up by
+the [Terraform Registry](https://registry.terraform.io/providers/plutosecurity/pluto) through
+its release webhook. The workflow needs the `GPG_PRIVATE_KEY` and `PASSPHRASE` repository
+secrets for the registry signing key.
+
+1. Add an entry to `CHANGELOG.md` and merge to `main`.
+2. Tag `main` with the next SemVer version and push the tag:
+
+   ```sh
+   git tag v0.1.0 && git push origin v0.1.0
+   ```
+
+3. Check the GitHub Release has the zips, `_SHA256SUMS`, `_SHA256SUMS.sig` and `_manifest.json`
+   assets. Never edit a published release; cut a new version instead.
