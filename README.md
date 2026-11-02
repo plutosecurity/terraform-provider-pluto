@@ -39,10 +39,21 @@ resource "pluto_policy" "notetakers" {
 }
 ```
 
-Bring an existing policy under Terraform with its id:
+### Start from a policy you already have
+
+The quickest way to get the right values is to build the policy in the Pluto dashboard, then let
+Terraform write its configuration. Add an `import` block with the policy's id:
+
+```hcl
+import {
+  to = pluto_policy.notetakers
+  id = "<policy id>"
+}
+```
 
 ```sh
-terraform import pluto_policy.notetakers <policy id>
+terraform plan -generate-config-out=generated.tf   # writes the pluto_policy resource
+terraform apply                                     # brings the policy under Terraform
 ```
 
 ### `pluto_policy` attributes
