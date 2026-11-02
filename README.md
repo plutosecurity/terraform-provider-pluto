@@ -1,17 +1,22 @@
 # Terraform provider for Pluto Security
 
-Manage Pluto policies as code. The provider wraps Pluto's external API (`/api/ext/v1/policies`).
+Manage Pluto policies as code.
 
-Every policy it writes is marked `managed_by = "terraform"`. The Pluto dashboard then shows a
-warning that edits made there are reverted on the next `terraform apply`. Editing in the
-dashboard stays allowed; the next `terraform plan` shows those edits as drift.
+Policies created by Terraform are shown as managed by Terraform in the Pluto dashboard. A change
+made in the dashboard shows up as drift in the next `terraform plan`, and `terraform apply` puts
+the configured value back.
+
+Documentation: [registry.terraform.io/providers/plutosecurity/pluto](https://registry.terraform.io/providers/plutosecurity/pluto/latest/docs).
 
 ## Use it
 
 ```hcl
 terraform {
   required_providers {
-    pluto = { source = "plutosecurity/pluto" }
+    pluto = {
+      source  = "plutosecurity/pluto"
+      version = "~> 0.1"
+    }
   }
 }
 
@@ -53,11 +58,6 @@ terraform import pluto_policy.notetakers <policy id>
 Not covered yet: MCP, skill, extension and runtime-enforcement selections, severity selections,
 and notification channels. A policy that uses them can still be managed; those settings are
 left as stored.
-
-### Deleting
-
-A delete removes a policy with no enforcement rules at once. One with rules is scheduled and
-reads as `status: deleting` until its rules are torn down; the provider treats that as deleted.
 
 ## Develop
 
