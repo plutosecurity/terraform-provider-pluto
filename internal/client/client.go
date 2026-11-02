@@ -1,4 +1,4 @@
-// Package client calls Pluto's external policy API (/api/ext/v1/policies).
+// Package client calls the Pluto policy API.
 package client
 
 import (
@@ -13,10 +13,10 @@ import (
 	"time"
 )
 
-// ManagedBy marks every policy this provider writes, so the dashboard warns that edits are reverted.
+// ManagedBy is written on every policy this provider creates or updates.
 const ManagedBy = "terraform"
 
-// StatusDeleting is reported by a policy whose delete was accepted but whose rules are still being torn down.
+// StatusDeleting is reported by a policy whose deletion has not finished.
 const StatusDeleting = "deleting"
 
 var ErrNotFound = errors.New("policy not found")
@@ -45,8 +45,7 @@ type Tool struct {
 	DisplayName string `json:"display_name"`
 }
 
-// Policy is both the write body and the read shape. Category and EnforcementTool are omitted on
-// update because the API refuses to change them on an existing policy.
+// Policy is both the write body and the read shape. Category and EnforcementTool are not sent on update.
 type Policy struct {
 	ID              string     `json:"id,omitempty"`
 	Name            string     `json:"name"`

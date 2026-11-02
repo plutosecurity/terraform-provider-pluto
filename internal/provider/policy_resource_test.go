@@ -15,8 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
-// fakeAPI mimics /api/ext/v1/policies: omitted PATCH fields are left alone, category and
-// enforcement_tool cannot be sent on update, and a deleted policy reads as "deleting".
+// fakeAPI is an in-memory stand-in for the Pluto policy API.
 type fakeAPI struct {
 	mu       sync.Mutex
 	policies map[string]map[string]any
