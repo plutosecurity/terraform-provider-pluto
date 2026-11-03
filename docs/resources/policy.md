@@ -34,6 +34,7 @@ A Pluto policy.
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `managed_by` (String) Always "terraform".
 
 <a id="nestedatt--targeted_scopes"></a>
 ### Nested Schema for `targeted_scopes`

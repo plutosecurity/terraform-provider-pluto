@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -45,6 +46,7 @@ type policyModel struct {
 	NotifyEndUser   types.Bool   `tfsdk:"notify_end_user"`
 	Tools           types.Set    `tfsdk:"tools"`
 	TargetedScopes  types.List   `tfsdk:"targeted_scopes"`
+	ManagedBy       types.String `tfsdk:"managed_by"`
 }
 
 type selectorModel struct {
@@ -91,6 +93,11 @@ func (r *policyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				ElementType:   types.StringType,
 				Description:   "Omit to leave the stored value unchanged.",
 				PlanModifiers: []planmodifier.Set{setplanmodifier.UseStateForUnknown()},
+			},
+			"managed_by": schema.StringAttribute{
+				Computed:    true,
+				Default:     stringdefault.StaticString(client.ManagedBy),
+				Description: "Always \"terraform\".",
 			},
 			"targeted_scopes": schema.ListNestedAttribute{
 				Optional:      true,
@@ -222,6 +229,7 @@ func fromAPI(ctx context.Context, p *client.Policy, m *policyModel) diag.Diagnos
 	m.Enabled = types.BoolValue(p.Enabled)
 	m.CustomMessage = types.StringPointerValue(p.CustomMessage)
 	m.NotifyEndUser = types.BoolValue(p.NotifyEndUser)
+	m.ManagedBy = types.StringPointerValue(p.ManagedBy)
 
 	names := []string{}
 	if p.SelectedTools != nil {

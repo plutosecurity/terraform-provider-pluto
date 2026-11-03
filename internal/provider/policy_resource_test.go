@@ -92,9 +92,9 @@ provider "pluto" {
   api_key = "pluto_test"
 }
 
-resource "pluto_policy" "notetakers" {
+resource "pluto_policy" "example" {
   name             = %q
-  category         = "AI Notetakers"
+  category         = "Example category"
   policy_type      = "block"
   enforcement_tool = "Falcon"
   tools            = [%s]
@@ -108,14 +108,14 @@ resource "pluto_policy" "notetakers" {
 
 func TestPolicyLifecycle(t *testing.T) {
 	api, srv := newFakeAPI(t)
-	const addr = "pluto_policy.notetakers"
+	const addr = "pluto_policy.example"
 	var id string
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: providers(),
 		Steps: []resource.TestStep{
 			{
-				Config: config(srv.URL, "Block notetakers", `"Otter", "Fireflies"`),
+				Config: config(srv.URL, "Example policy", `"Tool A", "Tool B"`),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(addr, "tools.#", "2"),
 					resource.TestCheckResourceAttr(addr, "enabled", "true"),
@@ -130,9 +130,9 @@ func TestPolicyLifecycle(t *testing.T) {
 				),
 			},
 			{
-				Config: config(srv.URL, "Block AI notetakers", `"Otter"`),
+				Config: config(srv.URL, "Example policy", `"Tool A"`),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(addr, "name", "Block AI notetakers"),
+					resource.TestCheckResourceAttr(addr, "name", "Example policy"),
 					resource.TestCheckResourceAttr(addr, "tools.#", "1"),
 				),
 			},
@@ -142,11 +142,11 @@ func TestPolicyLifecycle(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				// A dashboard edit is drift: the next apply puts the configured value back.
-				PreConfig: func() { api.policy(id)["name"] = "Edited in the dashboard" },
-				Config:    config(srv.URL, "Block AI notetakers", `"Otter"`),
+				// An edit outside Terraform is drift: the next apply puts the configured value back.
+				PreConfig: func() { api.policy(id)["name"] = "Edited elsewhere" },
+				Config:    config(srv.URL, "Example policy", `"Tool A"`),
 				Check: func(*terraform.State) error {
-					if got := api.policy(id)["name"]; got != "Block AI notetakers" {
+					if got := api.policy(id)["name"]; got != "Example policy" {
 						return fmt.Errorf("name after apply = %v, want the configured name", got)
 					}
 					return nil
@@ -170,11 +170,11 @@ provider "pluto" {
   api_key = "pluto_test"
 }
 
-resource "pluto_policy" "monitor" {
-  name        = "Watch notetakers"
-  category         = "AI Notetakers"
+resource "pluto_policy" "detect" {
+  name        = "Example policy"
+  category         = "Example category"
   policy_type      = "detect"
-  enforcement_tool = "Monitor"
+  enforcement_tool = "Example tool"
 }
 `, srv.URL)
 
@@ -183,12 +183,59 @@ resource "pluto_policy" "monitor" {
 		Steps: []resource.TestStep{{
 			Config: cfg,
 			Check: func(s *terraform.State) error {
-				id := s.RootModule().Resources["pluto_policy.monitor"].Primary.ID
+				id := s.RootModule().Resources["pluto_policy.detect"].Primary.ID
 				if _, sent := api.policy(id)["selected_tools"]; sent {
 					return fmt.Errorf("selected_tools was sent although tools is not configured")
 				}
 				return nil
 			},
 		}},
+	})
+}
+
+func TestAnImportedPolicyIsMarkedOnApply(t *testing.T) {
+	api, srv := newFakeAPI(t)
+	api.policies["p1"] = map[string]any{
+		"id": "p1", "status": "active", "name": "Imported policy", "category": "Example category",
+		"policy_type": "detect", "enforcement_tool": "Example tool", "enabled": true, "notify_end_user": true,
+		"selected_tools": []any{}, "targeted_scopes": []any{},
+	}
+	cfg := fmt.Sprintf(`
+provider "pluto" {
+  host    = %q
+  api_key = "pluto_test"
+}
+
+import {
+  to = pluto_policy.imported
+  id = "p1"
+}
+
+resource "pluto_policy" "imported" {
+  name             = "Imported policy"
+  category         = "Example category"
+  policy_type      = "detect"
+  enforcement_tool = "Example tool"
+  tools            = []
+  targeted_scopes  = []
+}
+`, srv.URL)
+	marked := func(*terraform.State) error {
+		if got := api.policy("p1")["managed_by"]; got != "terraform" {
+			return fmt.Errorf("managed_by = %v, want terraform", got)
+		}
+		return nil
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: providers(),
+		Steps: []resource.TestStep{
+			{Config: cfg, Check: marked},
+			{
+				PreConfig: func() { delete(api.policy("p1"), "managed_by") },
+				Config:    cfg,
+				Check:     marked,
+			},
+		},
 	})
 }
