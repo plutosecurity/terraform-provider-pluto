@@ -22,7 +22,7 @@ resource "pluto_policy" "github_mcp" {
     conditions = {
       kind = "group", id = "root", conjunction = "and"
       children = [{
-        kind   = "condition", id = "c-mcp", field = "mcp:name", operator = "is"
+        kind   = "condition", id = "c-mcp-1-name", field = "mcp:name", operator = "is"
         values = [{ id = "name:github", label = "github", kind = "mcp_server", resolution = "typed", scope = null }]
       }]
     }
