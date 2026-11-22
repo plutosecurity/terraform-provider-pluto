@@ -2,18 +2,15 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -21,37 +18,19 @@ import (
 )
 
 var (
-	_ resource.ResourceWithConfigure   = &policyResource{}
-	_ resource.ResourceWithImportState = &policyResource{}
+	_ resource.ResourceWithConfigure    = &policyResource{}
+	_ resource.ResourceWithImportState  = &policyResource{}
+	_ resource.ResourceWithUpgradeState = &policyResource{}
 )
-
-var selectorType = types.ObjectType{AttrTypes: map[string]attr.Type{
-	"type":   types.StringType,
-	"values": types.SetType{ElemType: types.StringType},
-}}
 
 type policyResource struct {
 	client *client.Client
 }
 
 type policyModel struct {
-	ID              types.String `tfsdk:"id"`
-	Name            types.String `tfsdk:"name"`
-	Description     types.String `tfsdk:"description"`
-	Category        types.String `tfsdk:"category"`
-	PolicyType      types.String `tfsdk:"policy_type"`
-	EnforcementTool types.String `tfsdk:"enforcement_tool"`
-	Enabled         types.Bool   `tfsdk:"enabled"`
-	CustomMessage   types.String `tfsdk:"custom_message"`
-	NotifyEndUser   types.Bool   `tfsdk:"notify_end_user"`
-	Tools           types.Set    `tfsdk:"tools"`
-	TargetedScopes  types.List   `tfsdk:"targeted_scopes"`
-	ManagedBy       types.String `tfsdk:"managed_by"`
-}
-
-type selectorModel struct {
-	Type   types.String `tfsdk:"type"`
-	Values []string     `tfsdk:"values"`
+	ID         types.String `tfsdk:"id"`
+	Definition types.String `tfsdk:"definition"`
+	Version    types.String `tfsdk:"version"`
 }
 
 func NewPolicyResource() resource.Resource { return &policyResource{} }
@@ -61,53 +40,23 @@ func (r *policyResource) Metadata(_ context.Context, req resource.MetadataReques
 }
 
 func (r *policyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	replace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
-		Description: "A Pluto policy.",
+		Version:     1,
+		Description: "A Pluto policy, defined exactly as the dashboard's policy editor saves it.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"name":        schema.StringAttribute{Required: true},
-			"description": schema.StringAttribute{Optional: true},
-			"category": schema.StringAttribute{
-				Required:      true,
-				Description:   "Changing it replaces the policy.",
-				PlanModifiers: replace,
-			},
-			"policy_type": schema.StringAttribute{
+			"definition": schema.StringAttribute{
 				Required: true,
+				Description: "The policy as JSON, in the shape the dashboard's policy editor reads and writes. " +
+					"Pluto validates it with the editor's own rules. Import a policy built in the dashboard " +
+					"to get a definition to start from.",
 			},
-			"enforcement_tool": schema.StringAttribute{
-				Required:      true,
-				Description:   "Changing it replaces the policy.",
-				PlanModifiers: replace,
-			},
-			"enabled":         schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(true)},
-			"custom_message":  schema.StringAttribute{Optional: true},
-			"notify_end_user": schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(true)},
-			"tools": schema.SetAttribute{
-				Optional:      true,
-				Computed:      true,
-				ElementType:   types.StringType,
-				Description:   "Omit to leave the stored value unchanged.",
-				PlanModifiers: []planmodifier.Set{setplanmodifier.UseStateForUnknown()},
-			},
-			"managed_by": schema.StringAttribute{
+			"version": schema.StringAttribute{
 				Computed:    true,
-				Default:     stringdefault.StaticString(client.ManagedBy),
-				Description: "Always \"terraform\".",
-			},
-			"targeted_scopes": schema.ListNestedAttribute{
-				Optional:      true,
-				Computed:      true,
-				Description:   "Omit to leave the stored value unchanged.",
-				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
-				NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
-					"type":   schema.StringAttribute{Required: true},
-					"values": schema.SetAttribute{Required: true, ElementType: types.StringType},
-				}},
+				Description: "Pluto's version of the policy, sent back on update so a newer change isn't overwritten.",
 			},
 		},
 	}
@@ -122,16 +71,15 @@ func (r *policyResource) Configure(_ context.Context, req resource.ConfigureRequ
 func (r *policyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan policyModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	body := toAPI(ctx, plan, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	created, err := r.client.CreatePolicy(ctx, body)
+	saved, err := r.client.CreateDefinition(ctx, json.RawMessage(plan.Definition.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Creating Pluto policy failed", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(fromAPI(ctx, created, &plan)...)
+	plan.ID, plan.Version = types.StringValue(saved.ID), types.StringValue(saved.Version)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
@@ -141,8 +89,8 @@ func (r *policyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	p, err := r.client.GetPolicy(ctx, state.ID.ValueString())
-	if errors.Is(err, client.ErrNotFound) || (err == nil && p.Status == client.StatusDeleting) {
+	saved, err := r.client.GetDefinition(ctx, state.ID.ValueString())
+	if errors.Is(err, client.ErrNotFound) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -150,23 +98,52 @@ func (r *policyResource) Read(ctx context.Context, req resource.ReadRequest, res
 		resp.Diagnostics.AddError("Reading Pluto policy failed", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(fromAPI(ctx, p, &state)...)
+	definition, d := r.differs(ctx, state.Definition, saved.Policy)
+	resp.Diagnostics.Append(d...)
+	if definition != nil {
+		state.Definition = types.StringValue(string(definition))
+	}
+	state.Version = types.StringValue(saved.Version)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
+// differs returns Pluto's definition when it differs from the one in state, and nil when Pluto reads
+// both the same. Pluto decides that: both go through its normalize, which writes out its defaults.
+func (r *policyResource) differs(ctx context.Context, known types.String, read json.RawMessage) (json.RawMessage, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	theirs, err := r.client.NormalizeDefinition(ctx, read)
+	if err != nil {
+		diags.AddError("Reading Pluto policy failed", err.Error())
+		return nil, diags
+	}
+	if known.IsNull() || known.IsUnknown() {
+		return theirs, diags
+	}
+	ours, err := r.client.NormalizeDefinition(ctx, json.RawMessage(known.ValueString()))
+	if err != nil {
+		diags.AddError("Reading Pluto policy failed", err.Error())
+		return nil, diags
+	}
+	var a, b any
+	if json.Unmarshal(ours, &a) == nil && json.Unmarshal(theirs, &b) == nil && reflect.DeepEqual(a, b) {
+		return nil, diags
+	}
+	return theirs, diags
+}
+
 func (r *policyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan policyModel
+	var plan, state policyModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	body := toAPI(ctx, plan, &resp.Diagnostics)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	updated, err := r.client.UpdatePolicy(ctx, plan.ID.ValueString(), body)
+	saved, err := r.client.UpdateDefinition(ctx, state.ID.ValueString(), state.Version.ValueString(), json.RawMessage(plan.Definition.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Updating Pluto policy failed", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(fromAPI(ctx, updated, &plan)...)
+	plan.Version = types.StringValue(saved.Version)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
@@ -176,7 +153,7 @@ func (r *policyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if err := r.client.DeletePolicy(ctx, state.ID.ValueString()); err != nil {
+	if err := r.client.DeleteDefinition(ctx, state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Deleting Pluto policy failed", err.Error())
 	}
 }
@@ -185,68 +162,11 @@ func (r *policyResource) ImportState(ctx context.Context, req resource.ImportSta
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-// toAPI builds the write body. An unknown tools or targeted_scopes means "not configured", which
-// leaves the stored value alone.
-func toAPI(ctx context.Context, m policyModel, diags *diag.Diagnostics) client.Policy {
-	p := client.Policy{
-		Name:            m.Name.ValueString(),
-		Description:     m.Description.ValueStringPointer(),
-		Category:        m.Category.ValueString(),
-		PolicyType:      m.PolicyType.ValueString(),
-		EnforcementTool: m.EnforcementTool.ValueStringPointer(),
-		Enabled:         m.Enabled.ValueBool(),
-		CustomMessage:   m.CustomMessage.ValueStringPointer(),
-		NotifyEndUser:   m.NotifyEndUser.ValueBool(),
-	}
-	if !m.Tools.IsUnknown() && !m.Tools.IsNull() {
-		var names []string
-		diags.Append(m.Tools.ElementsAs(ctx, &names, false)...)
-		tools := make([]client.Tool, 0, len(names))
-		for _, n := range names {
-			tools = append(tools, client.Tool{Type: "tool", DisplayName: n})
-		}
-		p.SelectedTools = &tools
-	}
-	if !m.TargetedScopes.IsUnknown() && !m.TargetedScopes.IsNull() {
-		var selectors []selectorModel
-		diags.Append(m.TargetedScopes.ElementsAs(ctx, &selectors, false)...)
-		p.TargetedScopes = make([]client.Selector, 0, len(selectors))
-		for _, s := range selectors {
-			p.TargetedScopes = append(p.TargetedScopes, client.Selector{Type: s.Type.ValueString(), Values: s.Values})
-		}
-	}
-	return p
-}
-
-func fromAPI(ctx context.Context, p *client.Policy, m *policyModel) diag.Diagnostics {
-	var diags diag.Diagnostics
-	m.ID = types.StringValue(p.ID)
-	m.Name = types.StringValue(p.Name)
-	m.Description = types.StringPointerValue(p.Description)
-	m.Category = types.StringValue(p.Category)
-	m.PolicyType = types.StringValue(p.PolicyType)
-	m.EnforcementTool = types.StringPointerValue(p.EnforcementTool)
-	m.Enabled = types.BoolValue(p.Enabled)
-	m.CustomMessage = types.StringPointerValue(p.CustomMessage)
-	m.NotifyEndUser = types.BoolValue(p.NotifyEndUser)
-	m.ManagedBy = types.StringPointerValue(p.ManagedBy)
-
-	names := []string{}
-	if p.SelectedTools != nil {
-		for _, t := range *p.SelectedTools {
-			names = append(names, t.DisplayName)
-		}
-	}
-	tools, d := types.SetValueFrom(ctx, types.StringType, names)
-	diags.Append(d...)
-	m.Tools = tools
-
-	selectors := make([]selectorModel, 0, len(p.TargetedScopes))
-	for _, s := range p.TargetedScopes {
-		selectors = append(selectors, selectorModel{Type: types.StringValue(s.Type), Values: s.Values})
-	}
-	scopes, d := types.ListValueFrom(ctx, selectorType, selectors)
-	diags.Append(d...)
-	m.TargetedScopes = scopes
-	return diags
+// UpgradeState refuses state written by provider 0.1, whose pluto_policy is now pluto_policy_legacy.
+func (r *policyResource) UpgradeState(context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{0: {StateUpgrader: func(_ context.Context, _ resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+		resp.Diagnostics.AddError("pluto_policy changed format in provider 0.2",
+			"Rename this resource to pluto_policy_legacy and add a moved block from pluto_policy, "+
+				"or replace it with the new pluto_policy and import the policy by its id.")
+	}}}
 }

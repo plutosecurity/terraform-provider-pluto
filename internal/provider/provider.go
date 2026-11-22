@@ -73,7 +73,7 @@ func (p *plutoProvider) Configure(ctx context.Context, req provider.ConfigureReq
 }
 
 func (p *plutoProvider) Resources(context.Context) []func() resource.Resource {
-	return []func() resource.Resource{NewPolicyResource}
+	return []func() resource.Resource{NewPolicyResource, NewLegacyPolicyResource}
 }
 
 func (p *plutoProvider) DataSources(context.Context) []func() datasource.DataSource {
