@@ -128,3 +128,69 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	}
 	return json.Unmarshal(raw, out)
 }
+
+// A definition is a policy as the dashboard's editor reads and writes it. The provider passes it
+// through as raw JSON and reads only the id and version Pluto assigns.
+
+type definitionBody struct {
+	Policy    json.RawMessage `json:"policy"`
+	ManagedBy string          `json:"managed_by,omitempty"`
+	Version   string          `json:"version,omitempty"`
+}
+
+// SavedDefinition is a policy as Pluto returns it.
+type SavedDefinition struct {
+	Policy  json.RawMessage
+	ID      string
+	Version string
+}
+
+const definitions = "/policy-definitions"
+
+func (c *Client) saved(ctx context.Context, method, path string, body any) (*SavedDefinition, error) {
+	var out struct {
+		Policy json.RawMessage `json:"policy"`
+	}
+	if err := c.do(ctx, method, path, body, &out); err != nil {
+		return nil, err
+	}
+	var ids struct {
+		ID   string `json:"id"`
+		Meta struct {
+			Version string `json:"version"`
+		} `json:"meta"`
+	}
+	if err := json.Unmarshal(out.Policy, &ids); err != nil {
+		return nil, err
+	}
+	return &SavedDefinition{Policy: out.Policy, ID: ids.ID, Version: ids.Meta.Version}, nil
+}
+
+func (c *Client) GetDefinition(ctx context.Context, id string) (*SavedDefinition, error) {
+	return c.saved(ctx, http.MethodGet, definitions+"/"+id, nil)
+}
+
+func (c *Client) CreateDefinition(ctx context.Context, definition json.RawMessage) (*SavedDefinition, error) {
+	return c.saved(ctx, http.MethodPost, definitions, definitionBody{Policy: definition, ManagedBy: ManagedBy})
+}
+
+func (c *Client) UpdateDefinition(ctx context.Context, id, version string, definition json.RawMessage) (*SavedDefinition, error) {
+	body := definitionBody{Policy: definition, ManagedBy: ManagedBy, Version: version}
+	return c.saved(ctx, http.MethodPut, definitions+"/"+id, body)
+}
+
+func (c *Client) DeleteDefinition(ctx context.Context, id string) error {
+	err := c.do(ctx, http.MethodDelete, definitions+"/"+id, nil, nil)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	return err
+}
+
+// NormalizeDefinition is the definition as Pluto reads it back: every defaulted field written out.
+func (c *Client) NormalizeDefinition(ctx context.Context, definition json.RawMessage) (json.RawMessage, error) {
+	var out struct {
+		Policy json.RawMessage `json:"policy"`
+	}
+	return out.Policy, c.do(ctx, http.MethodPost, definitions+"/normalize", definitionBody{Policy: definition}, &out)
+}
